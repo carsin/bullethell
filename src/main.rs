@@ -1,10 +1,12 @@
 use bevy::{prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}, transform};
 
-const SPEED: f32 = 100.;
-const BULLET_SPEED: f32 = 500.;
+const PLAYER_SPEED: f32 = 500.;
+const BULLET_SPEED: f32 = 1000.;
 
 #[derive(Component)]
-struct Player;
+struct Player {
+    speed: f32,
+}
 
 #[derive(Component)]
 struct Bullet {
@@ -21,35 +23,52 @@ struct BulletFireEvent {
     pos: Vec2,
 }
 
-fn update_player(keys: Res<Input<KeyCode>>, time: Res<Time>, mut query: Query<(&Player, &mut Transform)>, mut write_bullet: EventWriter<BulletFireEvent>) {
+fn update_player(
+    keys: Res<Input<KeyCode>>, 
+    mouse: Res<Input<MouseButton>>, 
+    time: Res<Time>, 
+    windows: Res<Windows>, // does this need to be retrieved every update?
+    mut write_bullet: EventWriter<BulletFireEvent>,
+    mut query: Query<(&Player, &mut Transform)>
+) {
     for (player, mut transform) in query.iter_mut() {
         if keys.pressed(KeyCode::W) {
-            transform.translation.y += SPEED * time.delta_seconds();
-        }
-        
-        if keys.pressed(KeyCode::S) {
-            transform.translation.y -= SPEED * time.delta_seconds();
+            transform.translation.y += player.speed * time.delta_seconds();
         }
         
         if keys.pressed(KeyCode::A) {
-            transform.translation.x -= SPEED * time.delta_seconds();
+            transform.translation.x -= player.speed * time.delta_seconds();
+        }
+        
+        if keys.pressed(KeyCode::S) {
+            transform.translation.y -= player.speed * time.delta_seconds();
         }
         
         if keys.pressed(KeyCode::D) {
-            transform.translation.x += SPEED * time.delta_seconds();
+            transform.translation.x += player.speed * time.delta_seconds();
         }
 
-        if keys.pressed(KeyCode::Space) {
-            write_bullet.send(BulletFireEvent { 
-                pos: Vec2::new(transform.translation.x, transform.translation.y) 
-            });
+        if mouse.just_pressed(MouseButton::Left) {
+            let window = windows.get_primary().unwrap();
+            if let Some(click_pos) = window.cursor_position() { // cursor is within window
+                // calculate bullet translation rotation with player pos & click pos
+                let gun_dir = (click_pos - Vec2::new(transform.translation.x, transform.translation.y)).normalize();
+                let rot_rads = self.rot.to_radians() + std::f32::consts::PI * 0.5;
+                // let dir_vec = vec2(rot_rads.cos(), rot_rads.sin());
+                
+                write_bullet.send(BulletFireEvent {  // send event
+                    pos: Vec2::new(transform.translation.x, transform.translation.y) 
+                });
+            }
         }
     }
 }
 
 fn spawn_player(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands.spawn()
-        .insert(Player)
+        .insert(Player {
+            speed: PLAYER_SPEED,
+        })
         .insert_bundle(MaterialMesh2dBundle { 
             mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
             transform: Transform::default().with_scale(Vec3::splat(50.)), material: materials.add(ColorMaterial::from(Color::rgb(0.1, 1., 0.1))),

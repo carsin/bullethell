@@ -1,6 +1,7 @@
 use bevy::{prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}, transform};
 
 const SPEED: f32 = 100.;
+const BULLET_SPEED: f32 = 500.;
 
 #[derive(Component)]
 struct Player;
@@ -70,7 +71,7 @@ fn spawn_bullet(mut commands: Commands, assets: Res<BulletAssets>, mut listen_bu
     for fire in listen_bullet.iter() {
         commands.spawn()
             .insert(Bullet {
-                speed: 10.,
+                speed: BULLET_SPEED,
             })
             .insert_bundle(MaterialMesh2dBundle {
                 mesh: assets.mesh.clone(),
@@ -81,9 +82,9 @@ fn spawn_bullet(mut commands: Commands, assets: Res<BulletAssets>, mut listen_bu
     }
 }
 
-fn update_bullets(mut query: Query<(&Bullet, &mut Transform)>) {
+fn update_bullets(mut query: Query<(&Bullet, &mut Transform)>, time: Res<Time>,) {
     for (bullet, mut transform) in query.iter_mut() {
-        transform.translation.y += bullet.speed as f32;
+        transform.translation.y += bullet.speed as f32 * time.delta_seconds();
     }
 }
 

@@ -53,7 +53,7 @@ fn update_player(
             if let Some(click_pos) = window.cursor_position() { // cursor is within window
                 // calculate bullet translation rotation with player pos & click pos
                 let gun_dir = (click_pos - Vec2::new(transform.translation.x, transform.translation.y)).normalize();
-                let rot_rads = self.rot.to_radians() + std::f32::consts::PI * 0.5;
+                // let rot_rads = self.rot.to_radians() + std::f32::consts::PI * 0.5;
                 // let dir_vec = vec2(rot_rads.cos(), rot_rads.sin());
                 
                 write_bullet.send(BulletFireEvent {  // send event

@@ -1,4 +1,4 @@
-use bevy::{prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}, transform};
+use bevy::{prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}, math::vec2};
 
 const PLAYER_SPEED: f32 = 500.;
 const BULLET_SPEED: f32 = 1000.;
@@ -11,6 +11,7 @@ struct Player {
 #[derive(Component)]
 struct Bullet {
     speed: f32,
+    dir: Vec2,
 }
 
 #[derive(Clone)]
@@ -21,6 +22,7 @@ struct BulletAssets {
 
 struct BulletFireEvent {
     pos: Vec2,
+    dir: Vec2,
 }
 
 fn update_player(
@@ -51,13 +53,14 @@ fn update_player(
         if mouse.just_pressed(MouseButton::Left) {
             let window = windows.get_primary().unwrap();
             if let Some(click_pos) = window.cursor_position() { // cursor is within window
-                // calculate bullet translation rotation with player pos & click pos
-                let gun_dir = (click_pos - Vec2::new(transform.translation.x, transform.translation.y)).normalize();
-                // let rot_rads = self.rot.to_radians() + std::f32::consts::PI * 0.5;
-                // let dir_vec = vec2(rot_rads.cos(), rot_rads.sin());
+                // get difference vector
+                let player_pos = vec2(transform.translation.x, transform.translation.y);
+                let dir_vec = (click_pos - player_pos).normalize();
                 
+                // fire bullet
                 write_bullet.send(BulletFireEvent {  // send event
-                    pos: Vec2::new(transform.translation.x, transform.translation.y) 
+                    pos: Vec2::new(transform.translation.x, transform.translation.y) ,
+                    dir: dir_vec,
                 });
             }
         }
@@ -86,11 +89,13 @@ fn load_bullet_mesh(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mu
     });
 }
 
+// spawns bullet on bulletfireevent send
 fn spawn_bullet(mut commands: Commands, assets: Res<BulletAssets>, mut listen_bullet: EventReader<BulletFireEvent>) {
     for fire in listen_bullet.iter() {
         commands.spawn()
             .insert(Bullet {
                 speed: BULLET_SPEED,
+                dir: fire.dir,
             })
             .insert_bundle(MaterialMesh2dBundle {
                 mesh: assets.mesh.clone(),
@@ -103,7 +108,9 @@ fn spawn_bullet(mut commands: Commands, assets: Res<BulletAssets>, mut listen_bu
 
 fn update_bullets(mut query: Query<(&Bullet, &mut Transform)>, time: Res<Time>,) {
     for (bullet, mut transform) in query.iter_mut() {
-        transform.translation.y += bullet.speed as f32 * time.delta_seconds();
+        // transform.rotate()
+        transform.translation.x += (bullet.dir.x * bullet.speed) * time.delta_seconds();
+        transform.translation.y += (bullet.dir.y * bullet.speed) * time.delta_seconds();
     }
 }
 

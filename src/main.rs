@@ -28,6 +28,7 @@ struct BulletAssets {
 struct BulletFireEvent {
     pos: Vec2,
     dir: Vec2,
+    angle: f32,
 }
 
 fn update_player(
@@ -55,19 +56,23 @@ fn update_player(
             transform.translation.x += player.speed * time.delta_seconds();
         }
 
-        if mouse.just_pressed(MouseButton::Left) {
+        if mouse.just_pressed(MouseButton::Left) || keys.pressed(KeyCode::Space) {
             let window = windows.get_primary().unwrap();
-            if let Some(click_pos) = window.cursor_position() { // cursor is within window
+            if let Some(click) = window.cursor_position() { // cursor click within window
                 // get difference vector
-                let player_pos = vec2(transform.translation.x, transform.translation.y);
+                // let player_pos = vec2(transform.translation.x, transform.translation.y);
+                let player_pos = transform.translation.truncate();
                 //  click pos origin (0,0) at bottom-left
-                let dir_vec = (vec2(click_pos.x - (window.width() / 2.), click_pos.y - (window.height() / 2.)) - player_pos).normalize();
-                println!("fire event:\n player_pos: {}\n click_pos: {}\n", player_pos, click_pos);
+                let rel_click_pos = vec2(click.x - (window.width() / 2.), click.y - (window.height() / 2.)); // origin at middle
+                let dir_vec = (rel_click_pos - player_pos).normalize();
+                let angle = (player_pos - rel_click_pos).angle_between(rel_click_pos);
+                println!("fire event:\n player_pos: {}\n click_pos: {}\n angle: {}\n", player_pos, rel_click_pos, angle);
 
                 // fire bullet
                 write_bullet.send(BulletFireEvent {
                     // send event
                     pos: Vec2::new(transform.translation.x, transform.translation.y),
+                    angle,
                     dir: dir_vec,
                 });
             }
@@ -126,7 +131,8 @@ fn spawn_bullet(
                 mesh: assets.mesh.clone(),
                 material: assets.material.clone(),
                 transform: Transform::default()
-                    .with_translation(Vec3::new(fire.pos.x, fire.pos.y, 0.0)),
+                    .with_translation(Vec3::new(fire.pos.x, fire.pos.y, 0.0))
+                    .with_rotation(Quat::from_rotation_z(fire.angle)),
                 ..Default::default()
             });
     }

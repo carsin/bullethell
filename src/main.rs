@@ -59,21 +59,22 @@ fn update_player(
         if mouse.just_pressed(MouseButton::Left) || keys.pressed(KeyCode::Space) {
             let window = windows.get_primary().unwrap();
             if let Some(click) = window.cursor_position() { // cursor click within window
-                // get difference vector
-                // let player_pos = vec2(transform.translation.x, transform.translation.y);
                 let player_pos = transform.translation.truncate();
-                //  click pos origin (0,0) at bottom-left
-                let rel_click_pos = vec2(click.x - (window.width() / 2.), click.y - (window.height() / 2.)); // origin at middle
-                let dir_vec = (rel_click_pos - player_pos).normalize();
-                let angle = (player_pos - rel_click_pos).angle_between(rel_click_pos);
-                println!("fire event:\n player_pos: {}\n click_pos: {}\n angle: {}\n", player_pos, rel_click_pos, angle);
+                // calculate click based on origin at middle (consistent with shooter)
+                let rel_click_pos = vec2(click.x - (window.width() / 2.), click.y - (window.height() / 2.)); 
+                let diff = player_pos - rel_click_pos;
+                let angle = f32::atan2(diff.y, diff.x);
+                println!(
+                    "fire event:\n player_pos: {}\n click_pos: {}\n angle: {}\n",
+                    player_pos, rel_click_pos, angle
+                );
 
                 // fire bullet
                 write_bullet.send(BulletFireEvent {
                     // send event
                     pos: Vec2::new(transform.translation.x, transform.translation.y),
-                    angle,
-                    dir: dir_vec,
+                    angle: angle + (std::f32::consts::FRAC_PI_2),
+                    dir: (rel_click_pos - player_pos).normalize(),
                 });
             }
         }

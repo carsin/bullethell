@@ -4,7 +4,8 @@ use bevy::{
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
 
-const PLAYER_SPEED: f32 = 500.;
+const PLAYER_SPEED: f32 = 300.;
+const PLAYER_SIZE: f32 = 20.;
 const BULLET_SPEED: f32 = 1000.;
 
 #[derive(Component)]
@@ -58,23 +59,28 @@ fn update_player(
 
         if mouse.just_pressed(MouseButton::Left) || keys.pressed(KeyCode::Space) {
             let window = windows.get_primary().unwrap();
-            if let Some(click) = window.cursor_position() { // cursor click within window
+            if let Some(click) = window.cursor_position() {
+                // cursor click within window
                 let player_pos = transform.translation.truncate();
                 // calculate click based on origin at middle (consistent with shooter)
-                let rel_click_pos = vec2(click.x - (window.width() / 2.), click.y - (window.height() / 2.)); 
+                let rel_click_pos = vec2(
+                    click.x - (window.width() / 2.),
+                    click.y - (window.height() / 2.),
+                );
                 let diff = player_pos - rel_click_pos;
                 let angle = f32::atan2(diff.y, diff.x);
+                let dir = (rel_click_pos - player_pos).normalize();
                 println!(
                     "fire event:\n player_pos: {}\n click_pos: {}\n angle: {}\n",
                     player_pos, rel_click_pos, angle
                 );
 
-                // fire bullet
+                // send fire event
                 write_bullet.send(BulletFireEvent {
-                    // send event
-                    pos: Vec2::new(transform.translation.x, transform.translation.y),
-                    angle: angle + (std::f32::consts::FRAC_PI_2),
-                    dir: (rel_click_pos - player_pos).normalize(),
+                    pos: Vec2::new(transform.translation.x, transform.translation.y)
+                        + (dir * PLAYER_SIZE),
+                    dir,
+                    angle: angle + std::f32::consts::FRAC_PI_2,
                 });
             }
         }
@@ -93,7 +99,7 @@ fn spawn_player(
         })
         .insert_bundle(MaterialMesh2dBundle {
             mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
-            transform: Transform::default().with_scale(Vec3::splat(50.)),
+            transform: Transform::default().with_scale(Vec3::splat(PLAYER_SIZE)),
             material: materials.add(ColorMaterial::from(Color::rgb(0.1, 1., 0.1))),
             ..Default::default()
         });
@@ -141,8 +147,6 @@ fn spawn_bullet(
 
 fn update_bullets(mut query: Query<(&Bullet, &mut Transform)>, time: Res<Time>) {
     for (bullet, mut transform) in query.iter_mut() {
-        // rotate bullet by angle from x-axis
-        // transform.rotate(Quat::from_rotation_x(bullet.rot));
         transform.translation.x += (bullet.dir.x * bullet.speed) * time.delta_seconds();
         transform.translation.y += (bullet.dir.y * bullet.speed) * time.delta_seconds();
     }

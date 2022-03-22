@@ -3,6 +3,9 @@ use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
+use bevy_ecs_tilemap::prelude::*;
+
+mod util;
 
 const PLAYER_SPEED: f32 = 300.;
 const PLAYER_SIZE: f32 = 20.;
@@ -86,41 +89,6 @@ fn update_player(
         }
     }
 }
-
-fn spawn_player(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    commands
-        .spawn()
-        .insert(Player {
-            speed: PLAYER_SPEED,
-        })
-        .insert_bundle(MaterialMesh2dBundle {
-            mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
-            transform: Transform::default().with_scale(Vec3::splat(PLAYER_SIZE)),
-            material: materials.add(ColorMaterial::from(Color::rgb(0.1, 1., 0.1))),
-            ..Default::default()
-        });
-}
-
-fn load_bullet_mesh(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    commands.insert_resource(BulletAssets {
-        mesh: meshes
-            .add(Mesh::from(shape::Quad {
-                size: Vec2::new(2., 10.),
-                flip: false,
-            }))
-            .into(),
-        material: materials.add(ColorMaterial::from(Color::rgb(1.0, 1.0, 0.1))),
-    });
-}
-
 // spawns bullet on bulletfireevent send
 fn spawn_bullet(
     mut commands: Commands,
@@ -153,9 +121,85 @@ fn update_bullets(mut query: Query<(&Bullet, &mut Transform)>, time: Res<Time>) 
 }
 
 fn spawn_camera(mut commands: Commands) {
+    // startup system: spawn perspective camera
     commands
         .spawn()
         .insert_bundle(OrthographicCameraBundle::new_2d());
+}
+
+fn spawn_player(
+    // startup system: init player
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    commands
+        .spawn()
+        .insert(Player {
+            speed: PLAYER_SPEED,
+        })
+        .insert_bundle(MaterialMesh2dBundle {
+            mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
+            transform: Transform::default().with_scale(Vec3::splat(PLAYER_SIZE)),
+            material: materials.add(ColorMaterial::from(Color::rgb(0.1, 1., 0.1))),
+            ..Default::default()
+        });
+}
+
+fn load_bullet_mesh(
+    // startup system: load render info for bullet
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    commands.insert_resource(BulletAssets {
+        mesh: meshes
+            .add(Mesh::from(shape::Quad {
+                size: Vec2::new(2., 10.),
+                flip: false,
+            }))
+            .into(),
+        material: materials.add(ColorMaterial::from(Color::rgb(1.0, 1.0, 0.1))),
+    });
+}
+
+// startup system: create game map
+fn spawn_tilemap(
+    // startup system: load render info for bullet
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut map_query: MapQuery,
+) {
+    let tile_textures: Handle<Image> = asset_server.load("tiles.png");
+
+    // create entity and component
+    let map_entity = commands.spawn().id();
+    let mut map = Map::new(0u16, map_entity);
+
+    // create maplayer via layerbuilder entity with single layer
+    let (mut layer_builder, _) = LayerBuilder::<TileBundle>::new(
+        &mut commands,
+        LayerSettings::new(
+            MapSize(2, 2),
+            ChunkSize(8, 8),
+            TileSize(16., 16.),
+            TextureSize(96., 16.),
+        ),
+        0u16,
+        0u16,
+    );
+
+    // build layer; layer no longer modifiable until bevy hard sync
+    layer_builder.set_all(TileBundle::default());
+    let layer_entity = map_query.build_layer(&mut commands, layer_builder, tile_textures);
+    map.add_layer(&mut commands, 0u16, layer_entity);
+
+    // spawn map entity
+    commands
+        .entity(map_entity)
+        .insert(map)
+        .insert(Transform::from_xyz(-128., -128., 0.))
+        .insert(GlobalTransform::default());
 }
 
 fn main() {
@@ -165,10 +209,13 @@ fn main() {
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
+        .add_plugin(TilemapPlugin)
         .add_startup_system(load_bullet_mesh)
+        .add_startup_system(spawn_tilemap)
         .add_startup_system(spawn_camera)
         .add_startup_system(spawn_player)
         .add_event::<BulletFireEvent>()
+        .add_system(util::set_texture_filters_to_nearest)
         .add_system(update_player)
         .add_system(spawn_bullet)
         .add_system(update_bullets)

@@ -20,7 +20,7 @@ struct Player {
 struct Bullet {
     speed: f32,
     dir: Vec2,
-    // rot: Vec2,
+    angle: f32,
 }
 
 #[derive(Clone)]
@@ -89,62 +89,6 @@ fn update_player(
         }
     }
 }
-// spawns bullet on bulletfireevent send
-fn spawn_bullet(
-    mut commands: Commands,
-    assets: Res<BulletAssets>,
-    mut listen_bullet: EventReader<BulletFireEvent>,
-) {
-    for fire in listen_bullet.iter() {
-        commands
-            .spawn()
-            .insert(Bullet {
-                speed: BULLET_SPEED,
-                dir: fire.dir,
-            })
-            .insert_bundle(MaterialMesh2dBundle {
-                mesh: assets.mesh.clone(),
-                material: assets.material.clone(),
-                transform: Transform::default()
-                    .with_translation(Vec3::new(fire.pos.x, fire.pos.y, 0.0))
-                    .with_rotation(Quat::from_rotation_z(fire.angle)),
-                ..Default::default()
-            });
-    }
-}
-
-fn update_bullets(mut query: Query<(&Bullet, &mut Transform)>, time: Res<Time>) {
-    for (bullet, mut transform) in query.iter_mut() {
-        transform.translation.x += (bullet.dir.x * bullet.speed) * time.delta_seconds();
-        transform.translation.y += (bullet.dir.y * bullet.speed) * time.delta_seconds();
-    }
-}
-
-fn spawn_camera(mut commands: Commands) {
-    // startup system: spawn perspective camera
-    commands
-        .spawn()
-        .insert_bundle(OrthographicCameraBundle::new_2d());
-}
-
-fn spawn_player(
-    // startup system: init player
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    commands
-        .spawn()
-        .insert(Player {
-            speed: PLAYER_SPEED,
-        })
-        .insert_bundle(MaterialMesh2dBundle {
-            mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
-            transform: Transform::default().with_scale(Vec3::splat(PLAYER_SIZE)),
-            material: materials.add(ColorMaterial::from(Color::rgb(0.1, 1., 0.1))),
-            ..Default::default()
-        });
-}
 
 fn load_bullet_mesh(
     // startup system: load render info for bullet
@@ -163,6 +107,89 @@ fn load_bullet_mesh(
     });
 }
 
+fn update_bullets(mut query: Query<(&Bullet, &mut Transform)>, time: Res<Time>) {
+    for (bullet, mut transform) in query.iter_mut() {
+        transform.translation.x += (bullet.dir.x * bullet.speed) * time.delta_seconds();
+        transform.translation.y += (bullet.dir.y * bullet.speed) * time.delta_seconds();
+    }
+}
+
+// spawns bullet on bulletfireevent send
+fn spawn_bullet(
+    mut commands: Commands,
+    assets: Res<BulletAssets>,
+    mut listen_bullet: EventReader<BulletFireEvent>,
+) {
+    for fire in listen_bullet.iter() {
+        commands
+            .spawn()
+            .insert(Bullet {
+                speed: BULLET_SPEED,
+                angle: fire.angle,
+                dir: fire.dir,
+            })
+            .insert_bundle(MaterialMesh2dBundle {
+                mesh: assets.mesh.clone(),
+                material: assets.material.clone(),
+                transform: Transform::default()
+                    .with_translation(Vec3::new(fire.pos.x, fire.pos.y, 0.0))
+                    .with_rotation(Quat::from_rotation_z(fire.angle)),
+                ..Default::default()
+            });
+    }
+}
+fn spawn_camera(mut commands: Commands) {
+    // startup system: spawn perspective camera
+    commands
+        .spawn()
+        .insert_bundle(OrthographicCameraBundle::new_2d());
+}
+
+fn update_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>, keys: Res<Input<KeyCode>>,) {
+    if keys.pressed(KeyCode::Up) {
+        for mut transform in query.iter_mut() {
+            transform.translation.y += PLAYER_SPEED * time.delta_seconds();
+        }
+    }
+
+    if keys.pressed(KeyCode::Left) {
+        for mut transform in query.iter_mut() {
+            transform.translation.x -= PLAYER_SPEED * time.delta_seconds();
+        }
+    }
+
+    if keys.pressed(KeyCode::Down) {
+        for mut transform in query.iter_mut() {
+            transform.translation.y -= PLAYER_SPEED * time.delta_seconds();
+        }
+    }
+
+    if keys.pressed(KeyCode::Right) {
+        for mut transform in query.iter_mut() {
+            transform.translation.x += PLAYER_SPEED * time.delta_seconds();
+        }
+    }
+
+}
+
+fn spawn_player(
+    // startup system: init player
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    commands
+        .spawn()
+        .insert(Player {
+            speed: PLAYER_SPEED,
+        })
+        .insert_bundle(MaterialMesh2dBundle {
+            mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
+            transform: Transform::default().with_scale(Vec3::splat(PLAYER_SIZE)),
+            material: materials.add(ColorMaterial::from(Color::rgb(1.0, 1.0, 1.0))),
+            ..Default::default()
+        });
+}
 // startup system: create game map
 fn spawn_tilemap(
     // startup system: load render info for bullet
@@ -216,8 +243,9 @@ fn main() {
         .add_startup_system(spawn_player)
         .add_event::<BulletFireEvent>()
         .add_system(util::set_texture_filters_to_nearest)
-        .add_system(update_player)
         .add_system(spawn_bullet)
         .add_system(update_bullets)
+        .add_system(update_player)
+        .add_system(update_camera)
         .run();
 }

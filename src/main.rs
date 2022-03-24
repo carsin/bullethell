@@ -5,6 +5,7 @@ use bevy::{
 };
 use bevy_ecs_tilemap::prelude::*;
 
+mod map;
 mod util;
 
 const PLAYER_SPEED: f32 = 300.;
@@ -35,52 +36,65 @@ struct BulletFireEvent {
     angle: f32,
 }
 
+#[derive(Component)]
+struct MainCamera;
+
 fn update_player(
     keys: Res<Input<KeyCode>>,
     mouse: Res<Input<MouseButton>>,
     time: Res<Time>,
     windows: Res<Windows>, // does this need to be retrieved every update?
     mut write_bullet: EventWriter<BulletFireEvent>,
-    mut query: Query<(&Player, &mut Transform)>,
+    mut p_query: Query<(&Player, &mut Transform)>,
+    c_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
-    for (player, mut transform) in query.iter_mut() {
+    for (player, mut p_transform) in p_query.iter_mut() {
         if keys.pressed(KeyCode::W) {
-            transform.translation.y += player.speed * time.delta_seconds();
+            p_transform.translation.y += player.speed * time.delta_seconds();
         }
 
         if keys.pressed(KeyCode::A) {
-            transform.translation.x -= player.speed * time.delta_seconds();
+            p_transform.translation.x -= player.speed * time.delta_seconds();
         }
 
         if keys.pressed(KeyCode::S) {
-            transform.translation.y -= player.speed * time.delta_seconds();
+            p_transform.translation.y -= player.speed * time.delta_seconds();
         }
 
         if keys.pressed(KeyCode::D) {
-            transform.translation.x += player.speed * time.delta_seconds();
+            p_transform.translation.x += player.speed * time.delta_seconds();
         }
 
         if mouse.just_pressed(MouseButton::Left) || keys.pressed(KeyCode::Space) {
-            let window = windows.get_primary().unwrap();
-            if let Some(click) = window.cursor_position() {
-                // cursor click within window
-                let player_pos = transform.translation.truncate();
-                // calculate click based on origin at middle (consistent with shooter)
-                let rel_click_pos = vec2(
-                    click.x - (window.width() / 2.),
-                    click.y - (window.height() / 2.),
-                );
-                let diff = player_pos - rel_click_pos;
+            // get camera info and transform, assuming only 1 camera entity
+            let (camera, camera_transform) = c_query.single();
+            // get camera's display window
+            let window = windows.get(camera.window).unwrap();
+            // cursor click within window
+            if let Some(click_pos) = window.cursor_position() {
+                // get position in world of click
+                let window_size = Vec2::new(window.width() as f32, window.height() as f32);
+                // convert screen position [0..resolution] to ndc [-1..1] (gpu coordinates)
+                let ndc = (click_pos / window_size) * 2.0 - Vec2::ONE;
+                // matrix for undoing the projection and camera transform
+                let ndc_to_world =
+                    camera_transform.compute_matrix() * camera.projection_matrix.inverse();
+                // use it to convert ndc to world-space coordinates
+                let world_pos = ndc_to_world.project_point3(ndc.extend(-1.0));
+                // reduce it to a 2D value
+                let world_pos: Vec2 = world_pos.truncate();
+                let player_pos = p_transform.translation.truncate();
+                let diff = player_pos - world_pos;
                 let angle = f32::atan2(diff.y, diff.x);
-                let dir = (rel_click_pos - player_pos).normalize();
+                let dir = (world_pos - player_pos).normalize();
                 println!(
                     "fire event:\n player_pos: {}\n click_pos: {}\n angle: {}\n",
-                    player_pos, rel_click_pos, angle
+                    player_pos, world_pos, angle
                 );
 
                 // send fire event
                 write_bullet.send(BulletFireEvent {
-                    pos: Vec2::new(transform.translation.x, transform.translation.y)
+                    pos: Vec2::new(p_transform.translation.x, p_transform.translation.y)
                         + (dir * PLAYER_SIZE),
                     dir,
                     angle: angle + std::f32::consts::FRAC_PI_2,
@@ -142,34 +156,50 @@ fn spawn_camera(mut commands: Commands) {
     // startup system: spawn perspective camera
     commands
         .spawn()
-        .insert_bundle(OrthographicCameraBundle::new_2d());
+        .insert_bundle(OrthographicCameraBundle::new_2d())
+        .insert(MainCamera);
 }
 
-fn update_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>, keys: Res<Input<KeyCode>>,) {
-    if keys.pressed(KeyCode::Up) {
-        for mut transform in query.iter_mut() {
-            transform.translation.y += PLAYER_SPEED * time.delta_seconds();
+fn update_camera(
+    mut query: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>,
+    time: Res<Time>,
+    keys: Res<Input<KeyCode>>,
+) {
+    for (mut transform, mut projection) in query.iter_mut() {
+        let mut dir = Vec3::ZERO;
+        if keys.pressed(KeyCode::Left) {
+            dir -= Vec3::new(1.0, 0.0, 0.0);
         }
-    }
 
-    if keys.pressed(KeyCode::Left) {
-        for mut transform in query.iter_mut() {
-            transform.translation.x -= PLAYER_SPEED * time.delta_seconds();
+        if keys.pressed(KeyCode::Right) {
+            dir += Vec3::new(1.0, 0.0, 0.0);
         }
-    }
 
-    if keys.pressed(KeyCode::Down) {
-        for mut transform in query.iter_mut() {
-            transform.translation.y -= PLAYER_SPEED * time.delta_seconds();
+        if keys.pressed(KeyCode::Up) {
+            dir += Vec3::new(0.0, 1.0, 0.0);
         }
-    }
 
-    if keys.pressed(KeyCode::Right) {
-        for mut transform in query.iter_mut() {
-            transform.translation.x += PLAYER_SPEED * time.delta_seconds();
+        if keys.pressed(KeyCode::Down) {
+            dir -= Vec3::new(0.0, 1.0, 0.0);
         }
-    }
 
+        if keys.pressed(KeyCode::Z) {
+            projection.scale += 0.03;
+        }
+
+        if keys.pressed(KeyCode::X) {
+            projection.scale -= 0.03;
+        }
+
+        if projection.scale < 0.5 {
+            projection.scale = 0.5;
+        }
+
+        // restore Z values to ensure camera's view of layers isn't messed up after modifying camera
+        let z = transform.translation.z;
+        transform.translation += time.delta_seconds() * dir * PLAYER_SPEED;
+        transform.translation.z = z;
+    }
 }
 
 fn spawn_player(
@@ -190,44 +220,6 @@ fn spawn_player(
             ..Default::default()
         });
 }
-// startup system: create game map
-fn spawn_tilemap(
-    // startup system: load render info for bullet
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut map_query: MapQuery,
-) {
-    let tile_textures: Handle<Image> = asset_server.load("tiles.png");
-
-    // create entity and component
-    let map_entity = commands.spawn().id();
-    let mut map = Map::new(0u16, map_entity);
-
-    // create maplayer via layerbuilder entity with single layer
-    let (mut layer_builder, _) = LayerBuilder::<TileBundle>::new(
-        &mut commands,
-        LayerSettings::new(
-            MapSize(2, 2),
-            ChunkSize(8, 8),
-            TileSize(16., 16.),
-            TextureSize(96., 16.),
-        ),
-        0u16,
-        0u16,
-    );
-
-    // build layer; layer no longer modifiable until bevy hard sync
-    layer_builder.set_all(TileBundle::default());
-    let layer_entity = map_query.build_layer(&mut commands, layer_builder, tile_textures);
-    map.add_layer(&mut commands, 0u16, layer_entity);
-
-    // spawn map entity
-    commands
-        .entity(map_entity)
-        .insert(map)
-        .insert(Transform::from_xyz(-128., -128., 0.))
-        .insert(GlobalTransform::default());
-}
 
 fn main() {
     App::new()
@@ -238,7 +230,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(TilemapPlugin)
         .add_startup_system(load_bullet_mesh)
-        .add_startup_system(spawn_tilemap)
+        .add_startup_system(map::spawn_tilemap)
         .add_startup_system(spawn_camera)
         .add_startup_system(spawn_player)
         .add_event::<BulletFireEvent>()

@@ -1,5 +1,4 @@
 use bevy::{
-    math::vec2,
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };

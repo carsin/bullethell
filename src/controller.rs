@@ -86,7 +86,6 @@ pub fn update_player(
     mut p_query: Query<(&Player, &mut Transform)>,
     c_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
-    // TODO: store player pos before iter to avoid cross-query
     for (player, mut p_transform) in p_query.iter_mut() {
         let mut dir = Vec3::ZERO;
         if keys.pressed(KeyCode::A) {
@@ -150,19 +149,26 @@ pub fn update_player(
 }
 
 pub fn update_camera(
-    // mut query: QuerySet<(
-    //     QueryState<
-    //         (&mut Transform, &mut OrthographicProjection, &mut MainCamera),
-    //         With<MainCamera>,
-    //     >,
-    //     QueryState<(&Transform, &Player)>,
-    // )>,
-    mut query: Query<(&mut Transform, &mut OrthographicProjection, &mut MainCamera)>,
-    p_query: Query<(&Player, &mut Transform)>,
+    mut query: QuerySet<(
+        QueryState<
+            (&mut Transform, &mut OrthographicProjection, &mut MainCamera),
+            With<MainCamera>,
+        >,
+        QueryState<(&Player, &Transform)>,
+    )>,
+    // mut query: Query<(&mut Transform, &mut OrthographicProjection, &mut MainCamera)>,
+    // p_query: Query<(&Player, &mut Transform)>,
     time: Res<Time>,
     keys: Res<Input<KeyCode>>,
 ) {
-    for (mut transform, mut projection, mut cam) in query.iter_mut() {
+    
+    let player_pos = if let Ok(p_transform) = query.q1().get_single() {
+        Some(p_transform.1.translation)
+    } else {
+        None
+    };
+    
+    for (mut transform, mut projection, mut cam) in query.q0().iter_mut() {
         let mut dir = Vec3::ZERO;
         if keys.pressed(KeyCode::Left) || (cam.locked && keys.pressed(KeyCode::A)) {
             dir -= Vec3::new(1.0, 0.0, 0.0);
@@ -180,15 +186,13 @@ pub fn update_camera(
             dir -= Vec3::new(0.0, 1.0, 0.0);
         }
 
-        if keys.pressed(KeyCode::Y) {
+        if keys.pressed(KeyCode::Y) && player_pos != None {
             // toggle lock
             cam.locked = !cam.locked;
             // center cam on player
-            if let Ok(p_transform) = p_query.get_single() {
-                let z = transform.translation.z;
-                transform.translation = p_transform.1.translation;
-                transform.translation.z = z;
-            }
+            let z = transform.translation.z;
+            transform.translation = player_pos.unwrap();
+            transform.translation.z = z;
         }
 
         if keys.pressed(KeyCode::Z) {

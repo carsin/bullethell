@@ -36,7 +36,9 @@ struct BulletFireEvent {
 }
 
 #[derive(Component)]
-struct MainCamera;
+struct MainCamera {
+    locked: bool,
+}
 
 fn update_player(
     keys: Res<Input<KeyCode>>,
@@ -48,21 +50,27 @@ fn update_player(
     c_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
     for (player, mut p_transform) in p_query.iter_mut() {
-        if keys.pressed(KeyCode::W) {
-            p_transform.translation.y += player.speed * time.delta_seconds();
-        }
-
+        let mut dir = Vec3::ZERO;
         if keys.pressed(KeyCode::A) {
-            p_transform.translation.x -= player.speed * time.delta_seconds();
-        }
-
-        if keys.pressed(KeyCode::S) {
-            p_transform.translation.y -= player.speed * time.delta_seconds();
+            dir -= Vec3::new(1.0, 0.0, 0.0);
         }
 
         if keys.pressed(KeyCode::D) {
-            p_transform.translation.x += player.speed * time.delta_seconds();
+            dir += Vec3::new(1.0, 0.0, 0.0);
         }
+
+        if keys.pressed(KeyCode::W) {
+            dir += Vec3::new(0.0, 1.0, 0.0);
+        }
+
+        if keys.pressed(KeyCode::S) {
+            dir -= Vec3::new(0.0, 1.0, 0.0);
+        }
+
+        // transform mesh without damaging z value
+        let z = p_transform.translation.z;
+        p_transform.translation += time.delta_seconds() * dir * player.speed;
+        p_transform.translation.z = z;
 
         if mouse.just_pressed(MouseButton::Left) || keys.pressed(KeyCode::Space) {
             // get camera info and transform, assuming only 1 camera entity
@@ -156,30 +164,51 @@ fn spawn_camera(mut commands: Commands) {
     commands
         .spawn()
         .insert_bundle(OrthographicCameraBundle::new_2d())
-        .insert(MainCamera);
+        .insert(MainCamera { locked: true });
 }
 
 fn update_camera(
-    mut query: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>,
+    // mut query: QuerySet<(
+    //     QueryState<
+    //         (&mut Transform, &mut OrthographicProjection, &mut MainCamera),
+    //         With<MainCamera>,
+    //     >,
+    //     QueryState<(&Transform, &Player)>,
+    // )>,
+    mut query: Query<
+        (&mut Transform, &mut OrthographicProjection, &mut MainCamera),
+    >,
+    p_query: Query<(&Player, &mut Transform)>,
     time: Res<Time>,
     keys: Res<Input<KeyCode>>,
 ) {
-    for (mut transform, mut projection) in query.iter_mut() {
+    for (mut transform, mut projection, mut cam) in query.iter_mut() {
         let mut dir = Vec3::ZERO;
-        if keys.pressed(KeyCode::Left) {
+        if keys.pressed(KeyCode::Left) || (cam.locked && keys.pressed(KeyCode::A)) {
             dir -= Vec3::new(1.0, 0.0, 0.0);
         }
 
-        if keys.pressed(KeyCode::Right) {
+        if keys.pressed(KeyCode::Right) || (cam.locked && keys.pressed(KeyCode::D)) {
             dir += Vec3::new(1.0, 0.0, 0.0);
         }
 
-        if keys.pressed(KeyCode::Up) {
+        if keys.pressed(KeyCode::Up) || (cam.locked && keys.pressed(KeyCode::W)) {
             dir += Vec3::new(0.0, 1.0, 0.0);
         }
 
-        if keys.pressed(KeyCode::Down) {
+        if keys.pressed(KeyCode::Down) || (cam.locked && keys.pressed(KeyCode::S)) {
             dir -= Vec3::new(0.0, 1.0, 0.0);
+        }
+
+        if keys.pressed(KeyCode::Y) {
+            // toggle lock
+            cam.locked = !cam.locked;
+            // center cam on player
+            if let Ok(p_transform) = p_query.get_single() {
+                let z = transform.translation.z;
+                transform.translation = p_transform.1.translation;
+                transform.translation.z = z;
+            }
         }
 
         if keys.pressed(KeyCode::Z) {
@@ -194,13 +223,18 @@ fn update_camera(
             projection.scale = 0.5;
         }
 
-        // restore Z values to ensure camera's view of layers isn't messed up after modifying camera
+        // transform mesh without damaging z value
         let z = transform.translation.z;
         transform.translation += time.delta_seconds() * dir * PLAYER_SPEED;
         transform.translation.z = z;
     }
 }
 
+// fn get_player_pos(p_query: Query<&Transform, With<Player>>) -> Vec3 {
+//     let p_transform = p_query.single();
+//     p_transform.translation
+// }
+//
 fn spawn_player(
     // startup system: init player
     mut commands: Commands,

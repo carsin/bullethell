@@ -40,6 +40,7 @@ pub fn spawn_tilemap(
 
     let mut random = thread_rng();
 
+    //  spawn animated tile ntities
     for _ in 0..1000 {
         let position = TilePos(
             random.gen_range(0..map_size.0 * 32),
@@ -70,12 +71,13 @@ pub fn spawn_tilemap(
     // Required to keep track of layers for a map internally.
     map.add_layer(&mut commands, 0u16, layer_0_entity);
     map.add_layer(&mut commands, 1u16, layer_1_entity);
+    
 
     // Spawn Map
     // Required in order to use map_query to retrieve layers/tiles.
     commands
         .entity(map_entity)
         .insert(map)
-        .insert(Transform::from_xyz(-5120.0, -5120.0, 0.0))
+        .insert(Transform::from_xyz(-5120.0, -5120.0, 1.0))
         .insert(GlobalTransform::default());
 }

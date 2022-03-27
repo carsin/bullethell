@@ -1,13 +1,16 @@
 // Systems for Player Entity, Camera
 use crate::assets;
 use crate::game;
+use crate::game::Gun;
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
 const PLAYER_SPEED: f32 = 300.;
 const PLAYER_SIZE: f32 = 20.;
+
 #[derive(Component)]
 pub struct Player {
     speed: f32,
+    gun: Gun,
 }
 
 #[derive(Component)]
@@ -16,14 +19,14 @@ pub struct MainCamera {
 }
 
 // Bevy Event
-pub struct BulletFireEvent {
+pub struct PlayerBulletFireEvent {
     pub pos: Vec2,
     pub dir: Vec2,
     pub angle: f32,
 }
 
+// startup system spawn camera
 pub fn spawn_camera(mut commands: Commands) {
-    // startup system: spawn perspective camera
     commands
         .spawn()
         .insert_bundle(OrthographicCameraBundle::new_2d())
@@ -39,6 +42,7 @@ pub fn spawn_player(
     commands
         .spawn()
         .insert(Player {
+            gun: game::GUN_GLOCK,
             speed: PLAYER_SPEED,
         })
         .insert_bundle(MaterialMesh2dBundle {
@@ -49,28 +53,27 @@ pub fn spawn_player(
         });
 }
 
-// TODO: refactor in player weapon system
 // Bevy EventListener: spawns bullet on bulletfireevent
 const BULLET_SPEED: f32 = 1000.;
 pub fn spawn_bullet(
     mut commands: Commands,
     assets: Res<assets::BulletAssets>,
-    mut listen_bullet: EventReader<BulletFireEvent>,
+    mut fire_event: EventReader<PlayerBulletFireEvent>,
 ) {
-    for fire in listen_bullet.iter() {
+    for bullet in fire_event.iter() {
         commands
             .spawn()
             .insert(game::Bullet {
                 speed: BULLET_SPEED,
-                dir: fire.dir,
-                angle: fire.angle,
+                dir: bullet.dir,
+                angle: bullet.angle,
             })
             .insert_bundle(MaterialMesh2dBundle {
                 mesh: assets.mesh.clone(),
                 material: assets.material.clone(),
                 transform: Transform::default()
-                    .with_translation(Vec3::new(fire.pos.x, fire.pos.y, 0.0))
-                    .with_rotation(Quat::from_rotation_z(fire.angle)),
+                    .with_translation(Vec3::new(bullet.pos.x, bullet.pos.y, 0.0))
+                    .with_rotation(Quat::from_rotation_z(bullet.angle)),
                 ..Default::default()
             });
     }
@@ -80,8 +83,8 @@ pub fn update_player(
     keys: Res<Input<KeyCode>>,
     mouse: Res<Input<MouseButton>>,
     time: Res<Time>,
-    windows: Res<Windows>, // does this need to be retrieved every update?
-    mut write_bullet: EventWriter<BulletFireEvent>,
+    windows: Res<Windows>,
+    mut write_bullet: EventWriter<PlayerBulletFireEvent>,
     mut p_query: Query<(&Player, &mut Transform)>,
     c_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
@@ -108,6 +111,7 @@ pub fn update_player(
         p_transform.translation += time.delta_seconds() * dir * player.speed;
         p_transform.translation.z = z;
 
+        // TODO: refactor in player weapon system
         if mouse.just_pressed(MouseButton::Left) || keys.just_pressed(KeyCode::Space) {
             // get camera info and transform, assuming only 1 camera entity
             let (camera, camera_transform) = c_query.single();
@@ -136,7 +140,7 @@ pub fn update_player(
                 );
 
                 // send fire event
-                write_bullet.send(BulletFireEvent {
+                write_bullet.send(PlayerBulletFireEvent {
                     pos: Vec2::new(p_transform.translation.x, p_transform.translation.y)
                         + (dir * PLAYER_SIZE),
                     dir,

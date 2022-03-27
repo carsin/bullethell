@@ -3,6 +3,7 @@ use bevy_ecs_tilemap::prelude::*;
 
 mod assets;
 mod controller;
+mod enemy;
 mod game;
 mod map;
 mod util;
@@ -19,12 +20,14 @@ fn main() {
         .add_startup_system(map::spawn_tilemap)
         .add_startup_system(controller::spawn_camera)
         .add_startup_system(controller::spawn_player)
-        .add_event::<controller::BulletFireEvent>()
+        .add_event::<controller::PlayerBulletFireEvent>()
         .add_system(util::set_texture_filters_to_nearest)
         .add_system(controller::spawn_bullet)
-         // update
+        // update
         .add_system(game::update_bullets)
         .add_system(controller::update_player)
         .add_system(controller::update_camera)
+        //
+        .add_system(bevy::input::system::exit_on_esc_system) // prototyping builtin
         .run();
 }

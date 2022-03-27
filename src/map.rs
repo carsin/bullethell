@@ -4,7 +4,6 @@ use rand::{thread_rng, Rng};
 
 // startup system: create game map
 pub fn spawn_tilemap(
-    // startup system: load render info for bullet
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut map_query: MapQuery,
@@ -40,7 +39,7 @@ pub fn spawn_tilemap(
 
     let mut random = thread_rng();
 
-    //  spawn animated tile ntities
+    //  spawn animated tile entities
     for _ in 0..1000 {
         let position = TilePos(
             random.gen_range(0..map_size.0 * 32),
@@ -49,7 +48,7 @@ pub fn spawn_tilemap(
         let _ = layer_builder.set_tile(
             position,
             Tile {
-                texture_index: 0,
+                texture_index: 1,
                 ..Default::default()
             }
             .into(),
@@ -71,7 +70,6 @@ pub fn spawn_tilemap(
     // Required to keep track of layers for a map internally.
     map.add_layer(&mut commands, 0u16, layer_0_entity);
     map.add_layer(&mut commands, 1u16, layer_1_entity);
-    
 
     // Spawn Map
     // Required in order to use map_query to retrieve layers/tiles.

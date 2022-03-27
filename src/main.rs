@@ -10,7 +10,7 @@ mod util;
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            title: "bullethell prototype 'corpseCo' !dwmf".to_string(),
+            title: "prototype !dwmf".to_string(),
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
@@ -22,7 +22,7 @@ fn main() {
         .add_event::<controller::BulletFireEvent>()
         .add_system(util::set_texture_filters_to_nearest)
         .add_system(controller::spawn_bullet)
-        //  update
+         // update
         .add_system(game::update_bullets)
         .add_system(controller::update_player)
         .add_system(controller::update_camera)

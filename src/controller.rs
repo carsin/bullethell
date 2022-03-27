@@ -1,5 +1,4 @@
 // Systems for Player Entity, Camera
-
 use crate::assets;
 use crate::game;
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
@@ -109,7 +108,7 @@ pub fn update_player(
         p_transform.translation += time.delta_seconds() * dir * player.speed;
         p_transform.translation.z = z;
 
-        if mouse.just_pressed(MouseButton::Left) || keys.pressed(KeyCode::Space) {
+        if mouse.just_pressed(MouseButton::Left) || keys.just_pressed(KeyCode::Space) {
             // get camera info and transform, assuming only 1 camera entity
             let (camera, camera_transform) = c_query.single();
             // get camera's display window
@@ -154,20 +153,17 @@ pub fn update_camera(
             (&mut Transform, &mut OrthographicProjection, &mut MainCamera),
             With<MainCamera>,
         >,
-        QueryState<(&Player, &Transform)>,
+        QueryState<(&Player, &Transform), Changed<Transform>>,
     )>,
-    // mut query: Query<(&mut Transform, &mut OrthographicProjection, &mut MainCamera)>,
-    // p_query: Query<(&Player, &mut Transform)>,
     time: Res<Time>,
     keys: Res<Input<KeyCode>>,
 ) {
-    
     let player_pos = if let Ok(p_transform) = query.q1().get_single() {
         Some(p_transform.1.translation)
     } else {
         None
     };
-    
+
     for (mut transform, mut projection, mut cam) in query.q0().iter_mut() {
         let mut dir = Vec3::ZERO;
         if keys.pressed(KeyCode::Left) || (cam.locked && keys.pressed(KeyCode::A)) {
@@ -186,7 +182,7 @@ pub fn update_camera(
             dir -= Vec3::new(0.0, 1.0, 0.0);
         }
 
-        if keys.pressed(KeyCode::Y) && player_pos != None {
+        if keys.just_pressed(KeyCode::Y) && player_pos != None {
             // toggle lock
             cam.locked = !cam.locked;
             // center cam on player
@@ -207,7 +203,7 @@ pub fn update_camera(
             projection.scale = 0.5;
         }
 
-        // transform mesh without damaging z value
+        // transform camera translation without damaging z value
         let z = transform.translation.z;
         transform.translation += time.delta_seconds() * dir * PLAYER_SPEED;
         transform.translation.z = z;

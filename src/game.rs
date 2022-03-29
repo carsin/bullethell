@@ -1,19 +1,21 @@
 use bevy::prelude::*;
 
+// determine gun stats from here
+enum GunKind {
+    PISTOL,
+    RIFLE,
+}
+
 pub const GUN_GLOCK: Gun = Gun {
-    name: "Glock-18",
-    rate: 19.0,
-    damage: 1.1,
-    spread: 7.0,
+    kind: GunKind::PISTOL,
+    durability: 100.,
 };
 
-
+// component for weapon system
 #[derive(Component)]
 pub struct Gun {
-    pub name: &'static str,
-    pub rate: f32,
-    pub damage: f32,
-    pub spread: f32,
+    pub kind: GunKind,
+    durability: f32,
 }
 
 #[derive(Component)]

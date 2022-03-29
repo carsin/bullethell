@@ -3,7 +3,6 @@ use bevy_ecs_tilemap::prelude::*;
 
 mod assets;
 mod controller;
-mod enemy;
 mod game;
 mod map;
 mod util;

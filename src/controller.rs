@@ -6,9 +6,11 @@ use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
 const PLAYER_SPEED: f32 = 300.;
 const PLAYER_SIZE: f32 = 20.;
+const BULLET_SPEED: f32 = 1000.;
 
 #[derive(Component)]
 pub struct Player {
+    health: f32,
     speed: f32,
     gun: Gun,
 }
@@ -54,7 +56,6 @@ pub fn spawn_player(
 }
 
 // Bevy EventListener: spawns bullet on bulletfireevent
-const BULLET_SPEED: f32 = 1000.;
 pub fn spawn_bullet(
     mut commands: Commands,
     assets: Res<assets::BulletAssets>,
@@ -162,12 +163,14 @@ pub fn update_camera(
     time: Res<Time>,
     keys: Res<Input<KeyCode>>,
 ) {
+    //  store player pos
     let player_pos = if let Ok(p_transform) = query.q1().get_single() {
         Some(p_transform.1.translation)
     } else {
         None
     };
 
+    // controls
     for (mut transform, mut projection, mut cam) in query.q0().iter_mut() {
         let mut dir = Vec3::ZERO;
         if keys.pressed(KeyCode::Left) || (cam.locked && keys.pressed(KeyCode::A)) {

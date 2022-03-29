@@ -39,7 +39,6 @@ pub fn spawn_tilemap(
 
     let mut random = thread_rng();
 
-    //  spawn animated tile entities
     for _ in 0..1000 {
         let position = TilePos(
             random.gen_range(0..map_size.0 * 32),

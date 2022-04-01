@@ -1,7 +1,6 @@
 // Systems for Player Entity, Camera
 use crate::assets;
 use crate::game;
-use crate::game::Gun;
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
 const PLAYER_SPEED: f32 = 300.;
@@ -10,9 +9,8 @@ const BULLET_SPEED: f32 = 1000.;
 
 #[derive(Component)]
 pub struct Player {
-    health: f32,
     speed: f32,
-    gun: Gun,
+    gun: game::Gun,
 }
 
 #[derive(Component)]
@@ -32,7 +30,8 @@ pub fn spawn_camera(mut commands: Commands) {
     commands
         .spawn()
         .insert_bundle(OrthographicCameraBundle::new_2d())
-        .insert(MainCamera { locked: true });
+        .insert(MainCamera { locked: true })
+        .insert_bundle(UiCameraBundle::default());
 }
 
 pub fn spawn_player(
@@ -47,6 +46,7 @@ pub fn spawn_player(
             gun: game::GUN_GLOCK,
             speed: PLAYER_SPEED,
         })
+        // TODO: convert to sprite
         .insert_bundle(MaterialMesh2dBundle {
             mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
             transform: Transform::default().with_scale(Vec3::splat(PLAYER_SIZE)),

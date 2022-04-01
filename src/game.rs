@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 // determine gun stats from here
-enum GunKind {
+pub enum GunKind {
     PISTOL,
     RIFLE,
 }
@@ -16,6 +16,12 @@ pub const GUN_GLOCK: Gun = Gun {
 pub struct Gun {
     pub kind: GunKind,
     durability: f32,
+}
+
+#[derive(Component)]
+pub struct Health {
+   max: f32, 
+   amount: f32, 
 }
 
 #[derive(Component)]

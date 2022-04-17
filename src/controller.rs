@@ -36,10 +36,12 @@ pub fn spawn_camera(mut commands: Commands) {
 
 pub fn spawn_player(
     // startup system: init player
+    asset_server: Res<AssetServer>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    let texture_handle: Handle<Image> = asset_server.load("player-idle.png");
     commands
         .spawn()
         .insert(Player {
@@ -47,10 +49,13 @@ pub fn spawn_player(
             speed: PLAYER_SPEED,
         })
         // TODO: convert to sprite
-        .insert_bundle(MaterialMesh2dBundle {
-            mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
+        // .insert_bundle(MaterialMesh2dBundle {
+        //     mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
+        //     transform: Transform::default().with_scale(Vec3::splat(PLAYER_SIZE)),
+        //     material: materials.add(ColorMaterial::from(Color::rgb(1.0, 1.0, 1.0))),
+        //     ..Default::default()
+        .insert_bundle(SpriteSheetBundle {
             transform: Transform::default().with_scale(Vec3::splat(PLAYER_SIZE)),
-            material: materials.add(ColorMaterial::from(Color::rgb(1.0, 1.0, 1.0))),
             ..Default::default()
         });
 }
@@ -80,7 +85,7 @@ pub fn spawn_bullet(
     }
 }
 
-pub fn update_player(
+pub fn player_control(
     keys: Res<Input<KeyCode>>,
     mouse: Res<Input<MouseButton>>,
     time: Res<Time>,
@@ -112,12 +117,11 @@ pub fn update_player(
         p_transform.translation += time.delta_seconds() * dir * player.speed;
         p_transform.translation.z = z;
 
-        // TODO: refactor in player weapon system
         if mouse.just_pressed(MouseButton::Left) || keys.just_pressed(KeyCode::Space) {
             // get camera info and transform, assuming only 1 camera entity
             let (camera, camera_transform) = c_query.single();
             // get camera's display window
-            let window = windows.get(camera.window).unwrap();
+            let window = windows.get_primary().unwrap();
             // cursor click within window
             if let Some(click_pos) = window.cursor_position() {
                 // get position in world of click
@@ -152,26 +156,23 @@ pub fn update_player(
     }
 }
 
-pub fn update_camera(
-    mut query: QuerySet<(
-        QueryState<
-            (&mut Transform, &mut OrthographicProjection, &mut MainCamera),
-            With<MainCamera>,
-        >,
-        QueryState<(&Player, &Transform), Changed<Transform>>,
+pub fn camera_control(
+    mut query: ParamSet<(
+        Query<(&mut Transform, &mut OrthographicProjection, &mut MainCamera), With<MainCamera>>,
+        Query<(&Player, &Transform), Changed<Transform>>,
     )>,
     time: Res<Time>,
     keys: Res<Input<KeyCode>>,
 ) {
     //  store player pos
-    let player_pos = if let Ok(p_transform) = query.q1().get_single() {
+    let player_pos = if let Ok(p_transform) = query.p1().get_single() {
         Some(p_transform.1.translation)
     } else {
         None
     };
 
     // controls
-    for (mut transform, mut projection, mut cam) in query.q0().iter_mut() {
+    for (mut transform, mut projection, mut cam) in query.p0().iter_mut() {
         let mut dir = Vec3::ZERO;
         if keys.pressed(KeyCode::Left) || (cam.locked && keys.pressed(KeyCode::A)) {
             dir -= Vec3::new(1.0, 0.0, 0.0);

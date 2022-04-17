@@ -20,8 +20,8 @@ pub struct Gun {
 
 #[derive(Component)]
 pub struct Health {
-   max: f32, 
-   amount: f32, 
+    max: f32,
+    amount: f32,
 }
 
 #[derive(Component)]

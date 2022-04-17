@@ -1,10 +1,8 @@
 use bevy::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
 
 mod assets;
 mod controller;
 mod game;
-mod map;
 mod util;
 
 fn main() {
@@ -14,9 +12,7 @@ fn main() {
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
-        .add_plugin(TilemapPlugin)
         .add_startup_system(assets::load_bullet_mesh)
-        .add_startup_system(map::spawn_tilemap)
         .add_startup_system(controller::spawn_camera)
         .add_startup_system(controller::spawn_player)
         .add_event::<controller::PlayerBulletFireEvent>()
@@ -24,9 +20,8 @@ fn main() {
         .add_system(controller::spawn_bullet)
         // update
         .add_system(game::update_bullets)
-        .add_system(controller::update_player)
-        .add_system(controller::update_camera)
-        //
+        .add_system(controller::player_control)
+        .add_system(controller::camera_control)
         .add_system(bevy::input::system::exit_on_esc_system) // prototyping builtin
         .run();
 }

@@ -1,8 +1,10 @@
 use bevy::prelude::*;
+use bevy_ecs_tilemap::prelude::*;
 
 mod assets;
 mod controller;
 mod game;
+mod map;
 mod util;
 
 fn main() {
@@ -15,6 +17,7 @@ fn main() {
         .add_startup_system(assets::load_bullet_mesh)
         .add_startup_system(controller::spawn_camera)
         .add_startup_system(controller::spawn_player)
+        .add_startup_system(map::spawn_map)
         .add_event::<controller::PlayerBulletFireEvent>()
         .add_system(util::set_texture_filters_to_nearest)
         .add_system(controller::spawn_bullet)

@@ -1,3 +1,5 @@
+#![allow(clippy::expect_fun_call)]
+#![allow(clippy::redundant_field_names)]
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 

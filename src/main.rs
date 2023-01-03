@@ -1,32 +1,76 @@
-#![allow(clippy::expect_fun_call)]
-#![allow(clippy::redundant_field_names)]
 use bevy::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
+use bevy_rapier2d::prelude::*;
 
-mod assets;
-mod controller;
-mod game;
-mod map;
-mod util;
+enum QueueEvent {
+    TravelEvent,
+}
+
+#[derive(Component)]
+struct Entity {
+    command_queue: Vec<QueueEvent>,
+}
+
+#[derive(Component)]
+struct Kind(String);
+
+#[derive(Component)]
+struct Player(f32);
+
+fn player_setup(mut commands: Commands, mut rapier_conf: ResMut<RapierConfiguration>) {
+    rapier_conf.gravity = Vec2::ZERO;
+    commands.spawn(Camera2dBundle::default());
+    
+    let sprite_size = 50.;
+
+    commands.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color: Color::rgb(0.0, 1.0, 0.0),
+                custom_size: Some(Vec2::new(sprite_size, sprite_size)),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        RigidBody::Dynamic,
+        Velocity::zero(),
+        Collider::ball(sprite_size / 2.),
+        Player(50.0),
+    ));
+}
+
+fn player_movement(input: Res<Input<KeyCode>>, mut player_query: Query<(&Player, &mut Velocity)>) {
+    for (player, mut rigid_body) in &mut player_query {
+        let up = input.pressed(KeyCode::W);
+        let down = input.pressed(KeyCode::S);
+        let left = input.pressed(KeyCode::A);
+        let right = input.pressed(KeyCode::D);
+
+        let x_axis = -(left as i8) + right as i8;
+        let y_axis = -(down as i8) + up as i8;
+
+        let mut delta = Vec2::new(x_axis as f32, y_axis as f32);
+        if delta != Vec2::ZERO {
+            delta /= delta.length();
+        }
+        // update linear velocity
+        rigid_body.linvel = delta * player.0;
+    }
+    
+}
 
 fn main() {
+    println!("run game");
     App::new()
-        .insert_resource(WindowDescriptor {
-            title: "prototype !dwmf".to_string(),
-            ..Default::default()
-        })
-        .add_plugins(DefaultPlugins)
-        .add_startup_system(assets::load_bullet_mesh)
-        .add_startup_system(controller::spawn_camera)
-        .add_startup_system(controller::spawn_player)
-        .add_startup_system(map::spawn_map)
-        .add_event::<controller::PlayerBulletFireEvent>()
-        .add_system(util::set_texture_filters_to_nearest)
-        .add_system(controller::spawn_bullet)
-        // update
-        .add_system(game::update_bullets)
-        .add_system(controller::player_control)
-        .add_system(controller::camera_control)
-        .add_system(bevy::input::system::exit_on_esc_system) // prototyping builtin
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "shooter2d".to_string(),
+                width: 1600.0,
+                height: 900.0,
+                ..Default::default()
+            },
+            ..default()
+        }))
+        .add_startup_system(player_setup)
+        .add_system(player_movement)
         .run();
 }
